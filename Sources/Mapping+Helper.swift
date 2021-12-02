@@ -17,10 +17,14 @@ precedencegroup TransitionPrecedence {
 
 infix operator =>: TransitionPrecedence // higher than `|`
 
+/// create Transition
+/// - Returns: Transition
 public func => <State>(left: @escaping (State) -> Bool, right: State) -> Transition<State> {
     return Transition(fromState: left, toState: right)
 }
 
+/// create Transition
+/// - Returns: Transition
 public func => <State: Equatable>(left: State, right: State) -> Transition<State> {
     return { $0 == left } => right
 }
@@ -29,6 +33,8 @@ public func => <State: Equatable>(left: State, right: State) -> Transition<State
 
 // infix operator | : AdditionPrecedence   // Comment-Out: already built-in
 
+///  create Mapping
+/// - Returns: Mapping
 public func | <Input, State>(
     inputFunc: @escaping (Input) -> Bool,
     transition: Transition<State>
@@ -42,6 +48,8 @@ public func | <Input, State>(
     }
 }
 
+///  create Mapping
+/// - Returns: Mapping
 public func | <Input: Equatable, State>(
     input: Input,
     transition: Transition<State>
@@ -49,6 +57,8 @@ public func | <Input: Equatable, State>(
     return { $0 == input } | transition
 }
 
+///  create Mapping
+/// - Returns: Mapping
 public func | <Input, State>(
     inputFunc: @escaping (Input) -> Bool,
     transition: @escaping (State) -> State
@@ -62,6 +72,8 @@ public func | <Input, State>(
     }
 }
 
+///  create Mapping
+/// - Returns: Mapping
 public func | <Input: Equatable, State>(
     input: Input,
     transition: @escaping (State) -> State
@@ -71,6 +83,8 @@ public func | <Input: Equatable, State>(
 
 // MARK: `|` (操作符 快速构造一个带副作用的自动机)
 
+///  create EffectMapping
+/// - Returns: EffectMapping
 public func | <Input, State, Queue, EffectID>(
     mapping: @escaping Automaton<Input, State>.Mapping,
     effect: SignalProducer<Input, Never>
@@ -78,6 +92,29 @@ public func | <Input, State, Queue, EffectID>(
     return mapping | Effect(effect)
 }
 
+///  create EffectMapping
+/// - Returns: EffectMapping
+public func | <Input, State, Queue, EffectID>(
+    mapping: @escaping Automaton<Input, State>.Mapping,
+    effect: (producer: SignalProducer<Input, Never>, queue: Queue)
+) -> Automaton<Input, State>.EffectMapping<Queue, EffectID> {
+    return mapping | Effect(effect.producer, queue: effect.queue)
+}
+
+/// EffectTuple
+public typealias EffectTuple<Input, Queue, EffectID> = (producer: SignalProducer<Input, Never>, queue: Queue, identifier: EffectID)
+
+///  create EffectMapping
+/// - Returns: EffectMapping
+public func | <Input, State, Queue, EffectID>(
+    mapping: @escaping Automaton<Input, State>.Mapping,
+    effect: EffectTuple<Input, Queue, EffectID>
+) -> Automaton<Input, State>.EffectMapping<Queue, EffectID> {
+    return mapping | Effect(effect.producer, queue: effect.queue, identifier: effect.identifier)
+}
+
+///  create EffectMapping
+/// - Returns: EffectMapping
 public func | <Input, State, Queue, EffectID>(
     mapping: @escaping Automaton<Input, State>.Mapping,
     effect: Effect<Input, Queue, EffectID>

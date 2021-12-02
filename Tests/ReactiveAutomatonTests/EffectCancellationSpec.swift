@@ -153,7 +153,7 @@ class EffectCancellationSpec: QuickSpec
                             .on(value: { _ in
                                 isEffectDetected = true
                             })
-                        return (toState, Effect(effect, id: effectID))
+                        return (toState, Effect(effect, identifier: effectID))
 
                     case let (.requesting, .userAction(.cancel(id))):
                         guard id == effectID else { return nil } // NOTE: skips `dummyEffectID`

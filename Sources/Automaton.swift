@@ -69,12 +69,15 @@ public final class Automaton<Input, State> {
                     }
 
                 let effects = mapped
-                    .compactMap { _, _, mapped -> Effect<Input, Queue, EffectID> in
-                        guard case let .some((_, effect)) = mapped else { return .none }
-                        return effect
-                    }
+                    .compactMap { $0.2?.1 }
                     .producer
                     .prefix(value: initialEffect)
+//                    .compactMap { _, _, mapped -> Effect<Input, Queue, EffectID> in
+//                        guard case let .some((_, effect)) = mapped else { return .none }
+//                        return effect
+//                    }
+//                    .producer
+//                    .prefix(value: initialEffect)
 
                 let producers = effects.compactMap { $0.producer }
                 let cancels = effects.compactMap { $0.cancel }
