@@ -1,8 +1,7 @@
 import ReactiveSwift
 
 /// "From-" and "to-" states represented as `.state1 => .state2` or `anyState => .state3`.
-public struct Transition<State>
-{
+public struct Transition<State> {
     public let fromState: (State) -> Bool
     public let toState: State
 }
@@ -15,32 +14,29 @@ precedencegroup TransitionPrecedence {
     associativity: left
     higherThan: AdditionPrecedence
 }
-infix operator => : TransitionPrecedence    // higher than `|`
 
-public func => <State>(left: @escaping (State) -> Bool, right: State) -> Transition<State>
-{
+infix operator =>: TransitionPrecedence // higher than `|`
+
+public func => <State>(left: @escaping (State) -> Bool, right: State) -> Transition<State> {
     return Transition(fromState: left, toState: right)
 }
 
-public func => <State: Equatable>(left: State, right: State) -> Transition<State>
-{
+public func => <State: Equatable>(left: State, right: State) -> Transition<State> {
     return { $0 == left } => right
 }
 
 // MARK: `|` (Automaton.Mapping constructor)
 
-//infix operator | : AdditionPrecedence   // Comment-Out: already built-in
+// infix operator | : AdditionPrecedence   // Comment-Out: already built-in
 
 public func | <Input, State>(
     inputFunc: @escaping (Input) -> Bool,
     transition: Transition<State>
-    ) -> Automaton<Input, State>.Mapping
-{
+) -> Automaton<Input, State>.Mapping {
     return { input, fromState in
-        if inputFunc(input) && transition.fromState(fromState) {
+        if inputFunc(input), transition.fromState(fromState) {
             return transition.toState
-        }
-        else {
+        } else {
             return nil
         }
     }
@@ -49,21 +45,18 @@ public func | <Input, State>(
 public func | <Input: Equatable, State>(
     input: Input,
     transition: Transition<State>
-    ) -> Automaton<Input, State>.Mapping
-{
+) -> Automaton<Input, State>.Mapping {
     return { $0 == input } | transition
 }
 
 public func | <Input, State>(
     inputFunc: @escaping (Input) -> Bool,
     transition: @escaping (State) -> State
-    ) -> Automaton<Input, State>.Mapping
-{
+) -> Automaton<Input, State>.Mapping {
     return { input, fromState in
         if inputFunc(input) {
             return transition(fromState)
-        }
-        else {
+        } else {
             return nil
         }
     }
@@ -72,8 +65,7 @@ public func | <Input, State>(
 public func | <Input: Equatable, State>(
     input: Input,
     transition: @escaping (State) -> State
-    ) -> Automaton<Input, State>.Mapping
-{
+) -> Automaton<Input, State>.Mapping {
     return { $0 == input } | transition
 }
 
@@ -82,21 +74,18 @@ public func | <Input: Equatable, State>(
 public func | <Input, State, Queue, EffectID>(
     mapping: @escaping Automaton<Input, State>.Mapping,
     effect: SignalProducer<Input, Never>
-    ) -> Automaton<Input, State>.EffectMapping<Queue, EffectID>
-{
+) -> Automaton<Input, State>.EffectMapping<Queue, EffectID> {
     return mapping | Effect(effect)
 }
 
 public func | <Input, State, Queue, EffectID>(
     mapping: @escaping Automaton<Input, State>.Mapping,
     effect: Effect<Input, Queue, EffectID>
-    ) -> Automaton<Input, State>.EffectMapping<Queue, EffectID>
-{
+) -> Automaton<Input, State>.EffectMapping<Queue, EffectID> {
     return { input, fromState in
         if let toState = mapping(input, fromState) {
             return (toState, effect)
-        }
-        else {
+        } else {
             return nil
         }
     }
@@ -107,8 +96,7 @@ public func | <Input, State, Queue, EffectID>(
 /// Helper for "any state" or "any input" mappings, e.g.
 /// - `let mapping = .input0 | any => .state1`
 /// - `let mapping = any | .state1 => .state2`
-public func any<T>(_: T) -> Bool
-{
+public func any<T>(_: T) -> Bool {
     return true
 }
 
@@ -149,16 +137,15 @@ public func toEffectMapping<Input, State, Queue, EffectID>(_ mapping: @escaping 
     -> Automaton<Input, State>.EffectMapping<Queue, EffectID>
 {
     return { input, state in
-        return mapping(input, state).map { ($0, nil) }
+        mapping(input, state).map { ($0, nil) }
     }
 }
 
 /// Converts `Automaton.EffectMapping` to `Automaton.Mapping`, discarding effects.
 public func toMapping<Input, State, Queue, EffectID>(
     _ effectMapping: @escaping Automaton<Input, State>.EffectMapping<Queue, EffectID>
-    ) -> Automaton<Input, State>.Mapping
-{
+) -> Automaton<Input, State>.Mapping {
     return { input, state in
-        return effectMapping(input, state)?.0
+        effectMapping(input, state)?.0
     }
 }

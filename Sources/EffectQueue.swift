@@ -4,20 +4,16 @@ import ReactiveSwift
 
 /// `Effect` queueing protocol to split event-flows into queues
 /// and each will be flattened using `flattenStrategy`, then merged.
-public protocol EffectQueueProtocol: Equatable, CaseIterable
-{
+public protocol EffectQueueProtocol: Equatable, CaseIterable {
     var flattenStrategy: FlattenStrategy { get }
 }
 
-extension Never: EffectQueueProtocol
-{
-    public static var allCases: [Never]
-    {
+extension Never: EffectQueueProtocol {
+    public static var allCases: [Never] {
         return [Never]()
     }
 
-    public var flattenStrategy: FlattenStrategy
-    {
+    public var flattenStrategy: FlattenStrategy {
         return .merge
     }
 }
@@ -31,13 +27,11 @@ internal enum EffectQueue<Queue>: EffectQueueProtocol
     case `default`
     case custom(Queue)
 
-    public static var allCases: [EffectQueue]
-    {
+    public static var allCases: [EffectQueue] {
         return [.default] + Queue.allCases.map(EffectQueue.custom)
     }
 
-    public var flattenStrategy: FlattenStrategy
-    {
+    public var flattenStrategy: FlattenStrategy {
         switch self {
         case .default:
             return .merge

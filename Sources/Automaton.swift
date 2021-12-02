@@ -2,8 +2,7 @@ import ReactiveSwift
 
 /// Deterministic finite state machine that receives "input"
 /// and with "current state" transform to "next state" & "output (additional effect)".
-public final class Automaton<Input, State>
-{
+public final class Automaton<Input, State> {
     /// Basic state-transition function type.
     public typealias Mapping = (Input, State) -> State?
 
@@ -18,9 +17,9 @@ public final class Automaton<Input, State>
     /// Current state.
     public let state: Property<State>
 
-    fileprivate let _repliesObserver: Signal<Reply<Input, State>, Never>.Observer
+    private let _repliesObserver: Signal<Reply<Input, State>, Never>.Observer
 
-    fileprivate let _disposable: Disposable
+    private let _disposable: Disposable
 
     /// Initializer using `Mapping`.
     ///
@@ -32,8 +31,7 @@ public final class Automaton<Input, State>
         state initialState: State,
         inputs inputSignal: Signal<Input, Never>,
         mapping: @escaping Mapping
-        )
-    {
+    ) {
         self.init(
             state: initialState,
             inputs: inputSignal,
@@ -53,37 +51,35 @@ public final class Automaton<Input, State>
         effect initialEffect: Effect<Input, Queue, EffectID> = .none,
         inputs inputSignal: Signal<Input, Never>,
         mapping: @escaping EffectMapping<Queue, EffectID>
-        ) where Queue: EffectQueueProtocol
-    {
+    ) where Queue: EffectQueueProtocol {
         self.init(
             state: initialState,
             inputs: inputSignal,
             makeSignals: { from -> MakeSignals in
-                let mapped = from
+                let mapped: Signal<(Input, State, (State, Effect<Input, Queue, EffectID>)?), Never> = from
                     .map { input, fromState in
-                        return (input, fromState, mapping(input, fromState))
+                        (input, fromState, mapping(input, fromState))
                     }
 
                 let replies = mapped
                     .map { input, fromState, mapped -> Reply<Input, State> in
                         if let (toState, _) = mapped {
                             return .success((input, fromState, toState))
-                        }
-                        else {
+                        } else {
                             return .failure((input, fromState))
                         }
                     }
 
                 let effects = mapped
-                    .filterMap { _, _, mapped -> Effect<Input, Queue, EffectID> in
-                        guard case let .some(_, effect) = mapped else { return .none }
+                    .compactMap { _, _, mapped -> Effect<Input, Queue, EffectID> in
+                        guard case let .some((_, effect)) = mapped else { return .none }
                         return effect
                     }
                     .producer
                     .prefix(value: initialEffect)
 
-                let producers = effects.filterMap { $0.producer }
-                let cancels = effects.filterMap { $0.cancel }
+                let producers = effects.compactMap { $0.producer }
+                let cancels = effects.compactMap { $0.cancel }
 
                 let effectInputs = SignalProducer.merge(
                     EffectQueue<Queue>.allCases.map { queue in
@@ -109,12 +105,11 @@ public final class Automaton<Input, State>
         state initialState: State,
         inputs inputSignal: Signal<Input, Never>,
         makeSignals: (Signal<(Input, State), Never>) -> MakeSignals
-        )
-    {
+    ) {
         let stateProperty = MutableProperty(initialState)
-        self.state = Property(capturing: stateProperty)
+        state = Property(capturing: stateProperty)
 
-        (self.replies, self._repliesObserver) = Signal<Reply<Input, State>, Never>.pipe()
+        (self.replies, _repliesObserver) = Signal<Reply<Input, State>, Never>.pipe()
 
         let effectInputs = Signal<Input, Never>.pipe()
 
@@ -127,9 +122,9 @@ public final class Automaton<Input, State>
 
         let d = CompositeDisposable()
 
-        d += stateProperty <~ replies.filterMap { $0.toState }
+        d += stateProperty <~ replies.compactMap { $0.toState }
 
-        d += replies.observeValues(self._repliesObserver.send(value:))
+        d += replies.observeValues(_repliesObserver.send(value:))
 
         let effectDisposable = effects.start(effectInputs.input)
 
@@ -149,19 +144,17 @@ public final class Automaton<Input, State>
                 effectInputs.input.sendInterrupted()
             }
 
-        self._disposable = d
+        _disposable = d
     }
 
-    deinit
-    {
+    deinit {
         self._repliesObserver.sendCompleted()
         self._disposable.dispose()
     }
 }
 
-extension Automaton
-{
-    internal typealias MakeSignals = (
+extension Automaton {
+    typealias MakeSignals = (
         replies: Signal<Reply<Input, State>, Never>,
         effects: SignalProducer<Input, Never>
     )

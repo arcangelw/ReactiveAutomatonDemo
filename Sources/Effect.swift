@@ -9,8 +9,7 @@ public struct Effect<Input, Queue, ID>
 {
     internal let kind: Kind
 
-    internal init(kind: Kind)
-    {
+    internal init(kind: Kind) {
         self.kind = kind
     }
 
@@ -25,8 +24,7 @@ public struct Effect<Input, Queue, ID>
         _ producer: SignalProducer<Input, Never>,
         queue: Queue? = nil,
         id: ID? = nil
-        )
-    {
+    ) {
         self.init(kind: .producer(
             Producer(
                 producer: producer,
@@ -39,30 +37,26 @@ public struct Effect<Input, Queue, ID>
     /// Cancels running `producer` by specifying `identifiers`.
     public static func cancel(
         _ identifiers: @escaping (ID) -> Bool
-        ) -> Effect<Input, Queue, ID>
-    {
+    ) -> Effect<Input, Queue, ID> {
         return Effect(kind: .cancel(identifiers))
     }
 
     /// Cancels running `producer` by specifying `identifier`.
     public static func cancel(
         _ identifier: ID
-        ) -> Effect<Input, Queue, ID>
-    {
+    ) -> Effect<Input, Queue, ID> {
         return Effect(kind: .cancel { $0 == identifier })
     }
 
     /// Empty side-effect.
-    public static var none: Effect<Input, Queue, ID>
-    {
+    public static var none: Effect<Input, Queue, ID> {
         return Effect(.empty)
     }
 
     // MARK: - Functor
 
-    public func mapInput<Input2>(_ f: @escaping (Input) -> Input2) -> Effect<Input2, Queue, ID>
-    {
-        switch self.kind {
+    public func mapInput<Input2>(_ f: @escaping (Input) -> Input2) -> Effect<Input2, Queue, ID> {
+        switch kind {
         case let .producer(producer):
             return .init(kind: .producer(Effect<Input2, Queue, ID>.Producer(
                 producer: producer.producer.map(f),
@@ -75,41 +69,33 @@ public struct Effect<Input, Queue, ID>
     }
 }
 
-extension Effect: ExpressibleByNilLiteral
-{
-    public init(nilLiteral: ())
-    {
+extension Effect: ExpressibleByNilLiteral {
+    public init(nilLiteral _: ()) {
         self = .none
     }
 }
 
-extension Effect
-{
-    internal var producer: Producer?
-    {
-        guard case let .producer(value) = self.kind else { return nil }
+extension Effect {
+    var producer: Producer? {
+        guard case let .producer(value) = kind else { return nil }
         return value
     }
 
-    internal var cancel: ((ID) -> Bool)?
-    {
-        guard case let .cancel(value) = self.kind else { return nil }
+    var cancel: ((ID) -> Bool)? {
+        guard case let .cancel(value) = kind else { return nil }
         return value
     }
 }
 
 // MARK: - Inner Types
 
-extension Effect
-{
-    internal enum Kind
-    {
+extension Effect {
+    enum Kind {
         case producer(Producer)
         case cancel((ID) -> Bool)
     }
 
-    internal struct Producer
-    {
+    struct Producer {
         /// "Cold" stream that runs side-effect and sends next `Input`.
         internal let producer: SignalProducer<Input, Never>
 

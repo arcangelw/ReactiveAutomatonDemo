@@ -7,17 +7,14 @@ import ReactiveSwift
 ///
 /// - SeeAlso: https://github.com/Babylonpartners/ReactiveFeedback
 /// - SeeAlso: https://github.com/NoTests/RxFeedback
-public struct Feedback<Input, Output>
-{
+public struct Feedback<Input, Output> {
     internal let transform: (Signal<Input, Never>) -> Signal<Output, Never>
 
-    public init(transform: @escaping (Signal<Input, Never>) -> Signal<Output, Never>)
-    {
+    public init(transform: @escaping (Signal<Input, Never>) -> Signal<Output, Never>) {
         self.transform = transform
     }
 
-    public init(produce: @escaping (Input) -> SignalProducer<Output, Never>)
-    {
+    public init(produce: @escaping (Input) -> SignalProducer<Output, Never>) {
         self.init(transform: { $0 }, produce: produce)
     }
 
@@ -25,10 +22,9 @@ public struct Feedback<Input, Output>
         transform: @escaping (Signal<Input, Never>) -> Signal<U, Never>,
         produce: @escaping (U) -> SignalProducer<Output, Never>,
         strategy: FlattenStrategy = .latest
-        )
-    {
+    ) {
         self.transform = {
-            return transform($0)
+            transform($0)
                 .flatMap(strategy) { produce($0) }
         }
     }
@@ -37,8 +33,7 @@ public struct Feedback<Input, Output>
     public init<U>(
         tryGet: @escaping (Input) -> U?,
         produce: @escaping (U) -> SignalProducer<Output, Never>
-        )
-    {
+    ) {
         self.init(
             transform: { $0.map(tryGet) },
             produce: { $0.map(produce) ?? .empty }
@@ -48,8 +43,7 @@ public struct Feedback<Input, Output>
     public init(
         filter: @escaping (Input) -> Bool,
         produce: @escaping (Input) -> SignalProducer<Output, Never>
-        )
-    {
+    ) {
         self.init(
             transform: { $0.filter(filter) },
             produce: produce
