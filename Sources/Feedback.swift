@@ -1,10 +1,5 @@
 import ReactiveSwift
 
-/// FRP-driven `Signal` transformer that is used
-/// as an alternative side-effect & feedback system in `Automaton`.
-///
-/// - Note: `Automaton` supports `Effect` and `EffectQueue` as a primary system.
-///
 /// - SeeAlso: https://github.com/Babylonpartners/ReactiveFeedback
 /// - SeeAlso: https://github.com/NoTests/RxFeedback
 public struct Feedback<Input, Output> {
@@ -29,7 +24,6 @@ public struct Feedback<Input, Output> {
         }
     }
 
-    /// Either `produce` or sends `.empty` based on `tryGet`.
     public init<U>(
         tryGet: @escaping (Input) -> U?,
         produce: @escaping (U) -> SignalProducer<Output, Never>
@@ -53,9 +47,8 @@ public struct Feedback<Input, Output> {
 
 // MARK: - Functions
 
-/// Folds multiple `Feedback`s into one.
-public func reduce<Input, Output>(_ feedbacks: [Feedback<Input, Output>]) -> Feedback<Input, Output>
-{
+/// 将多个状态反馈折叠
+public func reduce<Input, Output>(_ feedbacks: [Feedback<Input, Output>]) -> Feedback<Input, Output> {
     return Feedback<Input, Output> { signal in
         Signal.merge(feedbacks.map { $0.transform(signal) })
     }

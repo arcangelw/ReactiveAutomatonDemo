@@ -1,9 +1,10 @@
-/// `Automaton`'s reply to state transition.
+/// 自动状态机对应状态变化的返回值
+/// 包含成功 失败两种返回值
 public enum Reply<Input, State> {
-    /// Transition success, i.e. `(input, fromState, toState)`.
+    /// 状态转换成功`(input, fromState, toState)`.
     case success(Success)
 
-    /// Transition failure, i.e. `(input, fromState)`.
+    /// 状态转换失败`(input, fromState)`.
     case failure(Failure)
 
     public var success: Success? {
@@ -38,10 +39,10 @@ public enum Reply<Input, State> {
     }
 }
 
-public extension Reply {
-    /// State-transition success values.
-    typealias Success = (input: Input, fromState: State, toState: State)
+extension Reply {
+    /// 状态转换成功值 `(input, fromState, toState)`.
+    public typealias Success = (input: Input, fromState: State, toState: State)
 
-    /// State-transition failure values.
-    typealias Failure = (input: Input, fromState: State)
+    /// 状态转换失败值 `(input, fromState)`.
+    public typealias Failure = (input: Input, fromState: State)
 }

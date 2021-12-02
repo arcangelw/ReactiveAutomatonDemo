@@ -1,32 +1,30 @@
 import ReactiveSwift
 
-/// Deterministic finite state machine that receives "input"
-/// and with "current state" transform to "next state" & "output (additional effect)".
+/// 自动状态机，接受输入并将当前状态转换为下一个状态和副作用信号
 public final class Automaton<Input, State> {
-    /// Basic state-transition function type.
+    /// 基本状态转换（没有副作用） 将输入&当前状态转化为下一个状态
     public typealias Mapping = (Input, State) -> State?
 
-    /// Transducer (input & output) mapping with `Effect<Input>` (additional effect) as output,
-    /// which may emit next input values for continuous state-transitions.
+    /// 带副作用的状态转换 将输入&当前状态转化为下一个状态&副作用
     public typealias EffectMapping<Queue, EffectID> = (Input, State) -> (State, Effect<Input, Queue, EffectID>)?
         where Queue: EffectQueueProtocol, EffectID: Equatable
 
-    /// `Reply` signal that notifies either `.success` or `.failure` of state-transition on every input.
+    /// 输入状态转换返回结果信号
     public let replies: Signal<Reply<Input, State>, Never>
 
-    /// Current state.
+    /// 当前状态
     public let state: Property<State>
 
     private let _repliesObserver: Signal<Reply<Input, State>, Never>.Observer
 
     private let _disposable: Disposable
 
-    /// Initializer using `Mapping`.
+    /// 通过没有副作用的状态转换映射创建一个自动机
     ///
     /// - Parameters:
-    ///   - state: Initial state.
-    ///   - input: `Signal<Input, Never>` that automaton receives.
-    ///   - mapping: Simple `Mapping` that designates next state only (no additional effect).
+    ///   - state: 初始化状态
+    ///   - input: 输入数据信号
+    ///   - mapping: 没有副作用的状态转换映射
     public convenience init(
         state initialState: State,
         inputs inputSignal: Signal<Input, Never>,
@@ -39,13 +37,13 @@ public final class Automaton<Input, State> {
         )
     }
 
-    /// Initializer using `EffectMapping`.
+    /// 通过带有副作用的状态转换映射创建一个自动机.
     ///
     /// - Parameters:
-    ///   - state: Initial state.
-    ///   - effect: Initial effect.
-    ///   - input: `Signal<Input, Never>` that automaton receives.
-    ///   - mapping: `EffectMapping` that designates next state and also generates additional effect.
+    ///   - state: 初始化状态
+    ///   - effect: 初始化状态时的一个副作用，默认给一个空信号副作用
+    ///   - input: 输入数据信号
+    ///   - mapping: 带有副作用的状态转换映射
     public convenience init<Queue, EffectID>(
         state initialState: State,
         effect initialEffect: Effect<Input, Queue, EffectID> = .none,
@@ -80,13 +78,12 @@ public final class Automaton<Input, State> {
 
                 let producers = effects.compactMap { $0.producer }
                 let cancels = effects.compactMap { $0.cancel }
-
                 let effectInputs = SignalProducer.merge(
                     EffectQueue<Queue>.allCases.map { queue in
                         producers
                             .filter { $0.queue == queue }
                             .flatMap(queue.flattenStrategy) { producer -> SignalProducer<Input, Never> in
-                                guard let producerID = producer.id else {
+                                guard let producerID = producer.identifier else {
                                     return producer.producer
                                 }
 
@@ -101,50 +98,66 @@ public final class Automaton<Input, State> {
         )
     }
 
+    /// 内部初始化函数
+    /// - Parameters:
+    ///   - initialState: 初始化状态
+    ///   - inputSignal: 输入信号
+    ///   - makeSignals: 状态与副作用信号转换
     internal init(
         state initialState: State,
         inputs inputSignal: Signal<Input, Never>,
         makeSignals: (Signal<(Input, State), Never>) -> MakeSignals
     ) {
+        /// 可变属性状态
         let stateProperty = MutableProperty(initialState)
+        /// 不可变属性状态 对外暴露为当前自动机状态
         state = Property(capturing: stateProperty)
 
+        /// 创建一个转换值信号
         (self.replies, _repliesObserver) = Signal<Reply<Input, State>, Never>.pipe()
 
+        /// 创建一个副作用对输入数据的转换信号
         let effectInputs = Signal<Input, Never>.pipe()
-
+        /// 合并输入信号与副作用转换后的输出信号
         let mergedInputs = Signal.merge(inputSignal, effectInputs.output)
 
+        /// 合并输入数据与当前状态
         let mapped = mergedInputs
             .withLatest(from: stateProperty.producer)
 
+        /// 转换为状态反馈与副作用信号
         let (replies, effects) = makeSignals(mapped)
 
-        let d = CompositeDisposable()
+        let disp = CompositeDisposable()
 
-        d += stateProperty <~ replies.compactMap { $0.toState }
+        /// 订阅绑定状态反馈值的转换状态
+        disp += stateProperty <~ replies.compactMap { $0.toState }
 
-        d += replies.observeValues(_repliesObserver.send(value:))
+        /// 输入状态转换返回结果实时订阅更新自动机器返回值
+        disp += replies.observeValues(_repliesObserver.send(value:))
 
+        /// 副作用执行订阅
         let effectDisposable = effects.start(effectInputs.input)
 
-        d += effectDisposable
+        disp += effectDisposable
 
-        d += inputSignal
-            .observeCompleted { [_repliesObserver] in
+        /// 输入信号结束时候 结束状态机所有信号
+        disp += inputSignal
+            .observeCompleted { [_repliesObserver] in // swiftlint:disable:this identifier_name
                 effectDisposable.dispose()
                 _repliesObserver.sendCompleted()
                 effectInputs.input.sendCompleted()
             }
 
-        d += inputSignal
-            .observeInterrupted { [_repliesObserver] in
+        /// 输入信号中断时候 中断状态机所有信号
+        disp += inputSignal
+            .observeInterrupted { [_repliesObserver] in // swiftlint:disable:this identifier_name
                 effectDisposable.dispose()
                 _repliesObserver.sendInterrupted()
                 effectInputs.input.sendInterrupted()
             }
 
-        _disposable = d
+        _disposable = disp
     }
 
     deinit {
@@ -154,6 +167,7 @@ public final class Automaton<Input, State> {
 }
 
 extension Automaton {
+    /// 转换为状态反馈值信号与副作用信号
     typealias MakeSignals = (
         replies: Signal<Reply<Input, State>, Never>,
         effects: SignalProducer<Input, Never>

@@ -1,14 +1,14 @@
 import ReactiveSwift
 
-/// "From-" and "to-" states represented as `.state1 => .state2` or `anyState => .state3`.
+/// 状态转换
 public struct Transition<State> {
     public let fromState: (State) -> Bool
     public let toState: State
 }
 
-// MARK: - Custom Operators
+// MARK: - 自定义操作符
 
-// MARK: `=>` (Transition constructor)
+// MARK: `=>` (状态转换操作符 优先级高于`|`快速构造自动机)
 
 precedencegroup TransitionPrecedence {
     associativity: left
@@ -25,7 +25,7 @@ public func => <State: Equatable>(left: State, right: State) -> Transition<State
     return { $0 == left } => right
 }
 
-// MARK: `|` (Automaton.Mapping constructor)
+// MARK: `|` (操作符 快速构造一个不带副作用的自动机)
 
 // infix operator | : AdditionPrecedence   // Comment-Out: already built-in
 
@@ -69,7 +69,7 @@ public func | <Input: Equatable, State>(
     return { $0 == input } | transition
 }
 
-// MARK: `|` (Automaton.EffectMapping constructor)
+// MARK: `|` (操作符 快速构造一个带副作用的自动机)
 
 public func | <Input, State, Queue, EffectID>(
     mapping: @escaping Automaton<Input, State>.Mapping,
@@ -93,18 +93,17 @@ public func | <Input, State, Queue, EffectID>(
 
 // MARK: - Functions
 
-/// Helper for "any state" or "any input" mappings, e.g.
+/// 任意输入值 状态转换
 /// - `let mapping = .input0 | any => .state1`
 /// - `let mapping = any | .state1 => .state2`
 public func any<T>(_: T) -> Bool {
     return true
 }
 
-/// Folds multiple `Automaton.Mapping`s into one (preceding mapping has higher priority).
+/// 将多个状态转换折叠 最前有的转换优先级优先
 public func reduce<Input, State, Mappings: Sequence>(_ mappings: Mappings)
     -> Automaton<Input, State>.Mapping
-    where Mappings.Iterator.Element == Automaton<Input, State>.Mapping
-{
+    where Mappings.Iterator.Element == Automaton<Input, State>.Mapping {
     return { input, fromState in
         for mapping in mappings {
             if let toState = mapping(input, fromState) {
@@ -115,11 +114,10 @@ public func reduce<Input, State, Mappings: Sequence>(_ mappings: Mappings)
     }
 }
 
-/// Folds multiple `Automaton.EffectMapping`s into one (preceding mapping has higher priority).
+/// 将多个状态转换折叠 最前有的转换优先级优先
 public func reduce<Input, State, Mappings: Sequence, Queue, EffectID>(_ mappings: Mappings)
     -> Automaton<Input, State>.EffectMapping<Queue, EffectID>
-    where Mappings.Iterator.Element == Automaton<Input, State>.EffectMapping<Queue, EffectID>
-{
+    where Mappings.Iterator.Element == Automaton<Input, State>.EffectMapping<Queue, EffectID> {
     return { input, fromState in
         for mapping in mappings {
             if let tuple = mapping(input, fromState) {
@@ -132,16 +130,15 @@ public func reduce<Input, State, Mappings: Sequence, Queue, EffectID>(_ mappings
 
 // MARK: - Mapping conversion
 
-/// Converts `Automaton.Mapping` to `Automaton.EffectMapping`.
+/// 转换添加一个空信号的副作用
 public func toEffectMapping<Input, State, Queue, EffectID>(_ mapping: @escaping Automaton<Input, State>.Mapping)
-    -> Automaton<Input, State>.EffectMapping<Queue, EffectID>
-{
+    -> Automaton<Input, State>.EffectMapping<Queue, EffectID> {
     return { input, state in
         mapping(input, state).map { ($0, nil) }
     }
 }
 
-/// Converts `Automaton.EffectMapping` to `Automaton.Mapping`, discarding effects.
+/// 舍弃副作用
 public func toMapping<Input, State, Queue, EffectID>(
     _ effectMapping: @escaping Automaton<Input, State>.EffectMapping<Queue, EffectID>
 ) -> Automaton<Input, State>.Mapping {

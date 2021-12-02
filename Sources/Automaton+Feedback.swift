@@ -1,14 +1,15 @@
 import ReactiveSwift
 
-public extension Automaton {
-    /// Initializer using `feedback` for injecting side-effects.
+extension Automaton {
+    ///  Feedback执行副作用
+    ///  将状态机对应状态变化的返回值转换为下一个输入数据
     ///
     /// - Parameters:
-    ///   - state: Initial state.
-    ///   - input: `Signal<Input, Never>` that automaton receives.
-    ///   - mapping: Simple `Mapping` that designates next state only (no additional effect).
-    ///   - feedback: `Signal` transformer that performs side-effect and emits next input.
-    convenience init(
+    ///   - state: 初始化状态
+    ///   - input: 输入数据信号
+    ///   - mapping: 没有副作用的状态转换映射
+    ///   - feedback: 状态机对应状态变化的返回值转换为下一个输入数据
+    public convenience init(
         state initialState: State,
         inputs inputSignal: Signal<Input, Never>,
         mapping: @escaping Mapping,
@@ -31,6 +32,7 @@ public extension Automaton {
                         }
                     }
 
+                /// 副作用输入信号转换
                 let effects = feedback.transform(replies.compactMap { $0.success }).producer
 
                 return (replies, effects)
